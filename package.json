@@ -1,0 +1,16 @@
+{
+  "dependencies": {
+    "firebase": "^10.13.0",
+    "git": "^0.1.5",
+    "node-telegram-bot-api": "^0.66.0"
+  },
+  "name": "lizzard-clicker-master",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}
