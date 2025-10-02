@@ -3,9 +3,532 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Сообщение</title>
+    <title>Coin Game</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .welcome-screen {
+            text-align: center;
+            padding: 50px 20px;
+        }
+
+        .welcome-text {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            animation: fadeIn 1s ease-in;
+        }
+
+        .main-screen {
+            display: none;
+        }
+
+        .profile-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            background: linear-gradient(45deg, #ff6b6b, #feca57);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+        }
+
+        .balance {
+            font-size: 28px;
+            font-weight: bold;
+            margin: 10px 0;
+            color: #feca57;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 10px;
+            padding: 15px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+        }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            padding: 10px;
+        }
+
+        .nav-btn {
+            background: none;
+            border: none;
+            color: white;
+            padding: 10px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .game-screen {
+            display: none;
+            text-align: center;
+        }
+
+        .history {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 10px;
+            margin: 20px 0;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .history-number {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .game-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .game-option {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 30px 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .game-option:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-5px);
+        }
+
+        .game-option.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .dice {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .timer {
+            font-size: 18px;
+            margin: 10px 0;
+            color: #feca57;
+        }
+
+        .bet-section {
+            margin: 20px 0;
+        }
+
+        .bet-input {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            border-radius: 10px;
+            padding: 15px;
+            color: white;
+            font-size: 16px;
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        .bet-input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes roll {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .rolling {
+            animation: roll 0.5s ease-in-out;
+        }
+    </style>
 </head>
 <body>
-    <h1>Иди спать</h1>
+    <div class="container">
+        <!-- Welcome Screen -->
+        <div class="welcome-screen" id="welcomeScreen">
+            <div class="welcome-text" id="welcomeText"></div>
+        </div>
+
+        <!-- Main Screen -->
+        <div class="main-screen" id="mainScreen">
+            <div class="profile-card">
+                <div class="avatar" id="userAvatar">👤</div>
+                <div class="profile-info">
+                    <div>Профиль: <span id="userId"></span></div>
+                    <div class="balance" id="userBalance">100 Монет</div>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="deposit()">Пополнить</button>
+                <button class="btn btn-primary" onclick="withdraw()">Вывести</button>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div class="game-screen" id="gameScreen">
+            <div class="history" id="diceHistory"></div>
+            
+            <div class="timer" id="timer">Время на ставку: 15с</div>
+            
+            <div class="bet-section">
+                <input type="number" class="bet-input" id="betAmount" placeholder="Сумма ставки" min="1">
+                <button class="btn btn-primary" onclick="placeBet()">Сделать ставку</button>
+            </div>
+
+            <div class="game-options">
+                <div class="game-option" onclick="rollDice()">
+                    <div class="dice">🎲</div>
+                    <div>Кубик</div>
+                </div>
+                <div class="game-option disabled">
+                    <div class="dice">🚧</div>
+                    <div>В разработке..</div>
+                </div>
+            </div>
+
+            <div id="diceResult"></div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <div class="bottom-nav">
+        <button class="nav-btn" onclick="showProfile()">Профиль</button>
+        <button class="nav-btn" onclick="showGame()">Играть</button>
+        <button class="nav-btn" onclick="showMore()">Ещё</button>
+    </div>
+
+    <script>
+        class TelegramGame {
+            constructor() {
+                this.tg = window.Telegram.WebApp;
+                this.user = null;
+                this.balance = 100;
+                this.diceHistory = [];
+                this.currentBet = 0;
+                this.timer = null;
+                this.timeLeft = 15;
+                this.SCRIPT_URL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
+                
+                this.init();
+            }
+
+            init() {
+                this.tg.expand();
+                this.tg.enableClosingConfirmation();
+                
+                this.user = this.tg.initDataUnsafe.user;
+                this.loadUserData();
+                this.showWelcome();
+                
+                setTimeout(() => {
+                    this.showMainScreen();
+                }, 5000);
+            }
+
+            async loadUserData() {
+                try {
+                    // Имитация загрузки данных (замените на реальный запрос к Google Sheets)
+                    const savedData = this.getFromStorage();
+                    if (savedData) {
+                        this.balance = savedData.balance || 100;
+                        this.diceHistory = savedData.diceHistory || [];
+                    }
+                    this.updateUI();
+                } catch (error) {
+                    console.error('Ошибка загрузки данных:', error);
+                }
+            }
+
+            async saveUserData() {
+                try {
+                    this.saveToStorage({
+                        userId: this.user?.id,
+                        balance: this.balance,
+                        diceHistory: this.diceHistory
+                    });
+                } catch (error) {
+                    console.error('Ошибка сохранения данных:', error);
+                }
+            }
+
+            getFromStorage() {
+                try {
+                    return JSON.parse(localStorage.getItem('telegramGameData') || '{}');
+                } catch {
+                    return null;
+                }
+            }
+
+            saveToStorage(data) {
+                try {
+                    localStorage.setItem('telegramGameData', JSON.stringify(data));
+                } catch (error) {
+                    console.error('Ошибка сохранения в localStorage:', error);
+                }
+            }
+
+            showWelcome() {
+                const welcomeText = document.getElementById('welcomeText');
+                if (this.user) {
+                    welcomeText.textContent = `Привет, ${this.user.first_name || 'Друг'}!`;
+                } else {
+                    welcomeText.textContent = 'Привет, Друг!';
+                }
+            }
+
+            showMainScreen() {
+                document.getElementById('welcomeScreen').style.display = 'none';
+                document.getElementById('mainScreen').style.display = 'block';
+                document.getElementById('gameScreen').style.display = 'none';
+                this.updateUI();
+            }
+
+            showGame() {
+                document.getElementById('welcomeScreen').style.display = 'none';
+                document.getElementById('mainScreen').style.display = 'none';
+                document.getElementById('gameScreen').style.display = 'block';
+                this.startBetTimer();
+                this.updateDiceHistory();
+            }
+
+            showProfile() {
+                this.showMainScreen();
+            }
+
+            showMore() {
+                this.tg.showAlert('Раздел "Ещё" в разработке');
+            }
+
+            updateUI() {
+                if (this.user) {
+                    document.getElementById('userId').textContent = this.user.id;
+                    if (this.user.first_name) {
+                        document.getElementById('userAvatar').textContent = this.user.first_name[0].toUpperCase();
+                    }
+                }
+                document.getElementById('userBalance').textContent = `${this.balance} Монет`;
+            }
+
+            deposit() {
+                this.tg.openTelegramLink('https://t.me/animarovs');
+            }
+
+            withdraw() {
+                this.tg.openTelegramLink('https://t.me/animarovs');
+            }
+
+            startBetTimer() {
+                this.timeLeft = 15;
+                this.updateTimer();
+                
+                if (this.timer) {
+                    clearInterval(this.timer);
+                }
+                
+                this.timer = setInterval(() => {
+                    this.timeLeft--;
+                    this.updateTimer();
+                    
+                    if (this.timeLeft <= 0) {
+                        clearInterval(this.timer);
+                        this.autoRollDice();
+                    }
+                }, 1000);
+            }
+
+            updateTimer() {
+                const timerElement = document.getElementById('timer');
+                timerElement.textContent = `Время на ставку: ${this.timeLeft}с`;
+                
+                if (this.timeLeft <= 5) {
+                    timerElement.style.color = '#ff6b6b';
+                } else {
+                    timerElement.style.color = '#feca57';
+                }
+            }
+
+            placeBet() {
+                const betAmount = parseInt(document.getElementById('betAmount').value);
+                
+                if (!betAmount || betAmount < 1) {
+                    this.tg.showAlert('Введите корректную сумму ставки');
+                    return;
+                }
+                
+                if (betAmount > this.balance) {
+                    this.tg.showAlert('Недостаточно монет');
+                    return;
+                }
+                
+                this.currentBet = betAmount;
+                this.tg.showAlert(`Ставка ${betAmount} монет принята!`);
+            }
+
+            rollDice() {
+                if (this.currentBet === 0) {
+                    this.tg.showAlert('Сначала сделайте ставку!');
+                    return;
+                }
+
+                if (this.timeLeft <= 0) {
+                    this.tg.showAlert('Время на ставку истекло!');
+                    return;
+                }
+
+                this.performDiceRoll();
+            }
+
+            autoRollDice() {
+                if (this.currentBet === 0) {
+                    this.currentBet = Math.floor(this.balance * 0.1);
+                }
+                this.performDiceRoll();
+            }
+
+            performDiceRoll() {
+                const diceElement = document.querySelector('.dice');
+                const resultElement = document.getElementById('diceResult');
+                
+                diceElement.classList.add('rolling');
+                
+                setTimeout(() => {
+                    diceElement.classList.remove('rolling');
+                    
+                    const diceResult = Math.floor(Math.random() * 6) + 1;
+                    
+                    this.diceHistory.push(diceResult);
+                    if (this.diceHistory.length > 10) {
+                        this.diceHistory.shift();
+                    }
+                    
+                    this.calculatePayout(diceResult);
+                    
+                    resultElement.innerHTML = `
+                        <div style="margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 10px;">
+                            <h3>Результат: ${diceResult}</h3>
+                            <p>Ставка: ${this.currentBet} монет</p>
+                        </div>
+                    `;
+                    
+                    this.updateDiceHistory();
+                    this.updateUI();
+                    this.saveUserData();
+                    
+                    this.currentBet = 0;
+                    document.getElementById('betAmount').value = '';
+                    this.startBetTimer();
+                    
+                }, 500);
+            }
+
+            calculatePayout(diceResult) {
+                if (diceResult >= 4) {
+                    const winAmount = this.currentBet * 2;
+                    this.balance += winAmount;
+                    this.tg.showAlert(`Поздравляем! Вы выиграли ${winAmount} монет!`);
+                } else {
+                    this.balance -= this.currentBet;
+                    this.tg.showAlert(`К сожалению, вы проиграли ${this.currentBet} монет.`);
+                }
+            }
+
+            updateDiceHistory() {
+                const historyElement = document.getElementById('diceHistory');
+                historyElement.innerHTML = this.diceHistory.map(num => 
+                    `<div class="history-number">${num}</div>`
+                ).join('');
+            }
+        }
+
+        let game;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            game = new TelegramGame();
+        });
+
+        function showProfile() { game.showProfile(); }
+        function showGame() { game.showGame(); }
+        function showMore() { game.showMore(); }
+        function deposit() { game.deposit(); }
+        function withdraw() { game.withdraw(); }
+        function rollDice() { game.rollDice(); }
+        function placeBet() { game.placeBet(); }
+    </script>
 </body>
-</html>
+    </html>
