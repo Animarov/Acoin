@@ -23,6 +23,7 @@
             max-width: 400px;
             margin: 0 auto;
             padding: 20px;
+            padding-bottom: 70px;
         }
 
         .welcome-screen {
@@ -95,6 +96,16 @@
 
         .btn-primary {
             background: linear-gradient(45deg, #667eea, #764ba2);
+        }
+
+        .btn-bet {
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-bet.active {
+            background: linear-gradient(45deg, #feca57, #ff9ff3);
+            border-color: #feca57;
         }
 
         .bottom-nav {
@@ -181,9 +192,28 @@
             font-size: 18px;
             margin: 10px 0;
             color: #feca57;
+            display: none;
         }
 
         .bet-section {
+            margin: 20px 0;
+        }
+
+        .bet-amounts {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .bet-type {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .bet-input-section {
             margin: 20px 0;
         }
 
@@ -196,10 +226,25 @@
             font-size: 16px;
             width: 100%;
             margin: 10px 0;
+            text-align: center;
         }
 
         .bet-input::placeholder {
             color: rgba(255, 255, 255, 0.7);
+        }
+
+        .current-bet {
+            background: rgba(254, 202, 87, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border: 2px solid #feca57;
+        }
+
+        .bet-info {
+            margin: 10px 0;
+            font-size: 14px;
+            opacity: 0.8;
         }
 
         @keyframes fadeIn {
@@ -246,15 +291,46 @@
             
             <div class="timer" id="timer">Время на ставку: 15с</div>
             
-            <div class="bet-section">
-                <input type="number" class="bet-input" id="betAmount" placeholder="Сумма ставки" min="1">
-                <button class="btn btn-primary" onclick="placeBet()">Сделать ставку</button>
+            <div class="bet-section" id="betSection">
+                <h3>Выберите тип ставки:</h3>
+                
+                <div class="bet-type">
+                    <button class="btn btn-bet" onclick="selectBetType('1-3')">1-3</button>
+                    <button class="btn btn-bet" onclick="selectBetType('4-6')">4-6</button>
+                </div>
+                
+                <div class="bet-type">
+                    <button class="btn btn-bet" onclick="selectBetType('even')">Чёт</button>
+                    <button class="btn btn-bet" onclick="selectBetType('odd')">Нечёт</button>
+                </div>
+
+                <div class="bet-info" id="betInfo">
+                    Выберите тип ставки
+                </div>
+
+                <div class="current-bet" id="currentBetInfo" style="display: none;">
+                    <strong>Текущая ставка:</strong>
+                    <div id="currentBetText"></div>
+                </div>
+
+                <div class="bet-input-section">
+                    <h4>Сумма ставки:</h4>
+                    <div class="bet-amounts">
+                        <button class="btn btn-bet" onclick="setBetAmount(100)">+100</button>
+                        <button class="btn btn-bet" onclick="setBetAmount(500)">+500</button>
+                        <button class="btn btn-bet" onclick="setBetAmount(1000)">+1к</button>
+                        <button class="btn btn-bet" onclick="setBetAmount(10000)">+10к</button>
+                    </div>
+                    
+                    <input type="number" class="bet-input" id="betAmount" placeholder="Введите ставку" min="1">
+                    <button class="btn btn-primary" onclick="placeBet()" id="placeBetBtn">Подтвердить ставку</button>
+                </div>
             </div>
 
             <div class="game-options">
                 <div class="game-option" onclick="rollDice()">
                     <div class="dice">🎲</div>
-                    <div>Кубик</div>
+                    <div>Бросить кубик</div>
                 </div>
                 <div class="game-option disabled">
                     <div class="dice">🚧</div>
@@ -280,10 +356,21 @@
                 this.user = null;
                 this.balance = 100;
                 this.diceHistory = [];
-                this.currentBet = 0;
+                this.currentBet = {
+                    amount: 0,
+                    type: null,
+                    multiplier: 1
+                };
                 this.timer = null;
                 this.timeLeft = 15;
-                this.SCRIPT_URL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
+                this.isTimerActive = false;
+                
+                this.betMultipliers = {
+                    '1-3': 2,    // Ставка на 1-3 (x2)
+                    '4-6': 2,    // Ставка на 4-6 (x2)
+                    'even': 2,   // Ставка на чёт (x2)
+                    'odd': 2     // Ставка на нечёт (x2)
+                };
                 
                 this.init();
             }
@@ -303,7 +390,6 @@
 
             async loadUserData() {
                 try {
-                    // Имитация загрузки данных (замените на реальный запрос к Google Sheets)
                     const savedData = this.getFromStorage();
                     if (savedData) {
                         this.balance = savedData.balance || 100;
@@ -363,7 +449,7 @@
                 document.getElementById('welcomeScreen').style.display = 'none';
                 document.getElementById('mainScreen').style.display = 'none';
                 document.getElementById('gameScreen').style.display = 'block';
-                this.startBetTimer();
+                this.resetBet();
                 this.updateDiceHistory();
             }
 
@@ -393,8 +479,89 @@
                 this.tg.openTelegramLink('https://t.me/animarovs');
             }
 
+            selectBetType(type) {
+                // Сброс активных кнопок
+                document.querySelectorAll('.btn-bet').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                
+                // Активация выбранной кнопки
+                event.target.classList.add('active');
+                
+                this.currentBet.type = type;
+                this.currentBet.multiplier = this.betMultipliers[type];
+                
+                const betInfo = {
+                    '1-3': 'Ставка на числа 1, 2, 3 (выигрыш x2)',
+                    '4-6': 'Ставка на числа 4, 5, 6 (выигрыш x2)',
+                    'even': 'Ставка на чётные числа (x2)',
+                    'odd': 'Ставка на нечётные числа (x2)'
+                };
+                
+                document.getElementById('betInfo').textContent = betInfo[type];
+                this.updateCurrentBetDisplay();
+            }
+
+            setBetAmount(amount) {
+                const input = document.getElementById('betAmount');
+                input.value = amount;
+                this.updateCurrentBetDisplay();
+            }
+
+            updateCurrentBetDisplay() {
+                const currentBetInfo = document.getElementById('currentBetInfo');
+                const currentBetText = document.getElementById('currentBetText');
+                
+                if (this.currentBet.type && document.getElementById('betAmount').value) {
+                    const amount = parseInt(document.getElementById('betAmount').value);
+                    const betTypeText = {
+                        '1-3': '1-3',
+                        '4-6': '4-6',
+                        'even': 'Чёт',
+                        'odd': 'Нечёт'
+                    }[this.currentBet.type];
+                    
+                    currentBetText.textContent = `${amount} монет на ${betTypeText} (x${this.currentBet.multiplier})`;
+                    currentBetInfo.style.display = 'block';
+                } else {
+                    currentBetInfo.style.display = 'none';
+                }
+            }
+
+            placeBet() {
+                const betAmount = parseInt(document.getElementById('betAmount').value);
+                
+                if (!this.currentBet.type) {
+                    this.tg.showAlert('Выберите тип ставки!');
+                    return;
+                }
+                
+                if (!betAmount || betAmount < 1) {
+                    this.tg.showAlert('Введите корректную сумму ставки');
+                    return;
+                }
+                
+                if (betAmount > this.balance) {
+                    this.tg.showAlert('Недостаточно монет');
+                    return;
+                }
+                
+                this.currentBet.amount = betAmount;
+                document.getElementById('placeBetBtn').textContent = 'Ставка принята!';
+                document.getElementById('placeBetBtn').style.background = '#4cd964';
+                
+                // Запуск таймера только после принятия ставки
+                this.startBetTimer();
+                
+                this.tg.showAlert(`Ставка ${betAmount} монет принята!`);
+            }
+
             startBetTimer() {
+                if (this.isTimerActive) return;
+                
+                this.isTimerActive = true;
                 this.timeLeft = 15;
+                document.getElementById('timer').style.display = 'block';
                 this.updateTimer();
                 
                 if (this.timer) {
@@ -407,6 +574,7 @@
                     
                     if (this.timeLeft <= 0) {
                         clearInterval(this.timer);
+                        this.isTimerActive = false;
                         this.autoRollDice();
                     }
                 }, 1000);
@@ -423,31 +591,14 @@
                 }
             }
 
-            placeBet() {
-                const betAmount = parseInt(document.getElementById('betAmount').value);
-                
-                if (!betAmount || betAmount < 1) {
-                    this.tg.showAlert('Введите корректную сумму ставки');
-                    return;
-                }
-                
-                if (betAmount > this.balance) {
-                    this.tg.showAlert('Недостаточно монет');
-                    return;
-                }
-                
-                this.currentBet = betAmount;
-                this.tg.showAlert(`Ставка ${betAmount} монет принята!`);
-            }
-
             rollDice() {
-                if (this.currentBet === 0) {
+                if (this.currentBet.amount === 0) {
                     this.tg.showAlert('Сначала сделайте ставку!');
                     return;
                 }
 
-                if (this.timeLeft <= 0) {
-                    this.tg.showAlert('Время на ставку истекло!');
+                if (!this.isTimerActive) {
+                    this.tg.showAlert('Время на ставку истекло! Сделайте новую ставку.');
                     return;
                 }
 
@@ -455,8 +606,10 @@
             }
 
             autoRollDice() {
-                if (this.currentBet === 0) {
-                    this.currentBet = Math.floor(this.balance * 0.1);
+                if (this.currentBet.amount === 0) {
+                    // Если ставка не сделана, сбрасываем
+                    this.resetBet();
+                    return;
                 }
                 this.performDiceRoll();
             }
@@ -472,39 +625,89 @@
                     
                     const diceResult = Math.floor(Math.random() * 6) + 1;
                     
+                    // Добавление в историю
                     this.diceHistory.push(diceResult);
                     if (this.diceHistory.length > 10) {
                         this.diceHistory.shift();
                     }
                     
+                    // Расчет выигрыша
                     this.calculatePayout(diceResult);
                     
+                    // Показать результат
                     resultElement.innerHTML = `
                         <div style="margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 10px;">
-                            <h3>Результат: ${diceResult}</h3>
-                            <p>Ставка: ${this.currentBet} монет</p>
+                            <h3>🎲 Выпало: ${diceResult}</h3>
+                            <p>Ставка: ${this.currentBet.amount} монет</p>
+                            <p>Тип: ${this.getBetTypeText()}</p>
                         </div>
                     `;
                     
+                    // Обновление UI
                     this.updateDiceHistory();
                     this.updateUI();
                     this.saveUserData();
                     
-                    this.currentBet = 0;
-                    document.getElementById('betAmount').value = '';
-                    this.startBetTimer();
+                    // Сброс ставки и таймера
+                    this.resetBet();
                     
                 }, 500);
             }
 
+            getBetTypeText() {
+                return {
+                    '1-3': '1-3',
+                    '4-6': '4-6',
+                    'even': 'Чёт',
+                    'odd': 'Нечёт'
+                }[this.currentBet.type];
+            }
+
             calculatePayout(diceResult) {
-                if (diceResult >= 4) {
-                    const winAmount = this.currentBet * 2;
+                let isWin = false;
+                
+                switch (this.currentBet.type) {
+                    case '1-3':
+                        isWin = diceResult >= 1 && diceResult <= 3;
+                        break;
+                    case '4-6':
+                        isWin = diceResult >= 4 && diceResult <= 6;
+                        break;
+                    case 'even':
+                        isWin = diceResult % 2 === 0;
+                        break;
+                    case 'odd':
+                        isWin = diceResult % 2 === 1;
+                        break;
+                }
+                
+                if (isWin) {
+                    const winAmount = this.currentBet.amount * this.currentBet.multiplier;
                     this.balance += winAmount;
-                    this.tg.showAlert(`Поздравляем! Вы выиграли ${winAmount} монет!`);
+                    this.tg.showAlert(`🎉 Поздравляем! Вы выиграли ${winAmount} монет!`);
                 } else {
-                    this.balance -= this.currentBet;
-                    this.tg.showAlert(`К сожалению, вы проиграли ${this.currentBet} монет.`);
+                    this.balance -= this.currentBet.amount;
+                    this.tg.showAlert(`😔 К сожалению, вы проиграли ${this.currentBet.amount} монет.`);
+                }
+            }
+
+            resetBet() {
+                this.currentBet = { amount: 0, type: null, multiplier: 1 };
+                document.getElementById('betAmount').value = '';
+                document.getElementById('placeBetBtn').textContent = 'Подтвердить ставку';
+                document.getElementById('placeBetBtn').style.background = '';
+                document.getElementById('currentBetInfo').style.display = 'none';
+                document.getElementById('timer').style.display = 'none';
+                document.getElementById('betInfo').textContent = 'Выберите тип ставки';
+                
+                // Сброс активных кнопок
+                document.querySelectorAll('.btn-bet').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                
+                if (this.timer) {
+                    clearInterval(this.timer);
+                    this.isTimerActive = false;
                 }
             }
 
@@ -522,6 +725,11 @@
             game = new TelegramGame();
         });
 
+        // Обновление отображения при вводе суммы
+        document.getElementById('betAmount').addEventListener('input', function() {
+            game.updateCurrentBetDisplay();
+        });
+
         function showProfile() { game.showProfile(); }
         function showGame() { game.showGame(); }
         function showMore() { game.showMore(); }
@@ -529,6 +737,8 @@
         function withdraw() { game.withdraw(); }
         function rollDice() { game.rollDice(); }
         function placeBet() { game.placeBet(); }
+        function selectBetType(type) { game.selectBetType(type); }
+        function setBetAmount(amount) { game.setBetAmount(amount); }
     </script>
 </body>
-    </html>
+</html>
